@@ -1,0 +1,14 @@
+﻿# Arquivos de configuração sensíveis
+config.js
+.env
+
+# Dependências do Node
+node_modules/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Logs e ambiente local
+*.log
+.env.local

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bible Posts</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="control-panel">
+            <h1>Gerador de Posts Bíblicos para Instagram</h1>
+            
+            <div class="input-group">
+                <label for="themeInput">Tema Principal</label>
+                <input type="text" id="themeInput" placeholder="Ex: Amor de Deus">
+            </div>
+            
+            <div class="input-group">
+                <label for="promptInput">Instruções Específicas (opcional)</label>
+                <textarea id="promptInput" placeholder="Ex: Especifique o livro da bíblia se necessário"></textarea>
+            </div>
+            
+            <button id="generateBtn" class="generate-btn">
+                <span id="btnText">Gerar Posts</span>
+                <div id="loadingSpinner" class="loading-spinner"></div>
+            </button>
+            
+            <div id="errorMessage" class="error-message"></div>
+        </div>
+
+        <div id="carouselContainer" class="posts-carousel">
+            <!-- Slides serão inseridos aqui via JavaScript -->
+            <div class="carousel-nav" id="carouselNav"></div>
+        </div>
+
+        <div class="carousel-controls">
+            <button id="prevBtn" class="carousel-control">Anterior</button>
+            <button id="copyBtn" class="copy-button">Copiar Post</button>
+            <button id="nextBtn" class="carousel-control">Próximo</button>
+        </div>
+    </div>
+
+    <div id="copyFeedback" class="copy-feedback">
+        Post copiado com sucesso!
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
