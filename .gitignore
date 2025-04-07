@@ -1,7 +1,6 @@
 # Arquivos de configuração sensíveis
 config.js
 .env*
-!.env.example  # Exceto este arquivo de exemplo
 
 # Dependências do Node
 node_modules/
