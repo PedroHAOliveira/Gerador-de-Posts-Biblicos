@@ -21,11 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTheme = '';
     let postsData = [];
 
-// script.js (trecho modificado)
-const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${
-  window.GEMINI_API_KEY || // Usará a chave injetada pela Vercel
-  (typeof GEMINI_CONFIG !== 'undefined' ? GEMINI_CONFIG.API_KEY : '') // Fallback para desenvolvimento
-}`;
+    // script.js (trecho modificado)
+    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${
+      window.GEMINI_API_KEY || // Usará a chave injetada pela Vercel
+      (typeof GEMINI_CONFIG !== 'undefined' ? GEMINI_CONFIG.API_KEY : '') // Fallback para desenvolvimento
+    }`;
 
     // Event Listeners
     DOM.generateBtn.addEventListener('click', handleGenerateClick);
