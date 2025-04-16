@@ -1,4 +1,9 @@
 {
   "framework": null,
-  "outputDirectory": "."
+  "outputDirectory": ".",
+  "build": {
+    "env": {
+      "API_KEY": "__API_KEY__"
+    }
+  }
 }
