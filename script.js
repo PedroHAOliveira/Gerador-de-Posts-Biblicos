@@ -21,11 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTheme = '';
     let postsData = [];
 
-    // script.js (trecho modificado)
-    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${
-      window.GEMINI_API_KEY || // Usará a chave injetada pela Vercel
-      (typeof GEMINI_CONFIG !== 'undefined' ? GEMINI_CONFIG.API_KEY : '') // Fallback para desenvolvimento
-    }`;
+    // Configuração da API com variável de ambiente
+    const API_KEY = window.ENV?.API_KEY || process.env.API_KEY || '';
+    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
 
     // Event Listeners
     DOM.generateBtn.addEventListener('click', handleGenerateClick);
@@ -85,12 +84,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            console.log('Status da resposta:', response.status, response.statusText);
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
+                console.error('Erro na resposta da API:', errorData);
                 throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
             }
             
             const data = await response.json();
+            console.log('Resposta completa da API:', JSON.stringify(data, null, 2));
             return parseApiResponse(data);
 
         } catch (error) {
@@ -129,13 +132,21 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     function parseApiResponse(data) {
         try {
             const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!content) throw new Error('Resposta vazia da API');
+            if (!content) {
+                console.error('Conteúdo da API vazio:', data);
+                throw new Error('Resposta vazia da API');
+            }
 
-            // Extrair posts usando regex
-            const postPattern = /\*\*Post \d+:\*\*\s*- Imagem: (.*?)\s*- Legenda: (.*?)(?=\n\*\*Post|\n$)/gs;
+            console.log('Conteúdo bruto da API:', content);
+
+            // Extrair posts usando regex (mais flexível)
+            const postPattern = /\*\*Post \d+:\*\*\s*- Imagem:\s*(.*?)\s*- Legenda:\s*(.*?)(?=\n\*\*Post|\n$)/gs;
             const matches = [...content.matchAll(postPattern)];
 
-            if (matches.length === 0) throw new Error('Formato não reconhecido');
+            if (matches.length === 0) {
+                console.error('Nenhum post encontrado no conteúdo:', content);
+                throw new Error('Formato não reconhecido');
+            }
 
             return matches.map((match, index) => ({
                 id: index + 1,
