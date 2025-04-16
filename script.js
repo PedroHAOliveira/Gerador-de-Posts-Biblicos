@@ -21,10 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTheme = '';
     let postsData = [];
 
+       
     // Configuração da API com variável de ambiente
-    const API_KEY = process.env.API_KEY || '';
+    const API_KEY = window.ENV?.API_KEY || '__API_KEY__'; // '__API_KEY__' será substituído pelo Vercel durante o build
     const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
-
 
     // Event Listeners
     DOM.generateBtn.addEventListener('click', handleGenerateClick);
