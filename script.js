@@ -120,7 +120,7 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
         const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) throw new Error('Resposta vazia da API');
 
-        const postPattern = /\*\*Post \d+:\*\*\s*- Imagem:\s*(.*?)\s*- Legenda:\s*(.*?)(?=\n\*\*Post|\n$)/gs;
+        const postPattern = /\*\*Post \d+:\*\*\s*\n*- \*\*Imagem:\*\*\s*(.*?)\s*- \*\*Legenda:\*\*\s*(.*?)(?=\n\*\*Post|\n*$)/gs;
         const matches = [...content.matchAll(postPattern)];
 
         if (matches.length === 0) throw new Error('Formato não reconhecido');
