@@ -117,30 +117,36 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     }
 
     function parseApiResponse(data) {
+    try {
         const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!content) throw new Error('Resposta vazia da API');
+        if (!content) {
+            console.error('Conteúdo da API vazio:', data);
+            throw new Error('Resposta vazia da API');
+        }
 
-        const postPattern = /\*\*Post \d+:\*\*\s*\n*- \*\*Imagem:\*\*\s*(.*?)\s*- \*\*Legenda:\*\*\s*(.*?)(?=\n\*\*Post|\n*$)/gs;
+        console.log('Conteúdo bruto da API:', content);
+
+        // Regex corrigido para bater com **Imagem:** e **Legenda:**
+        const postPattern = /\*\*Post \d+:\*\*\s*\n*- \*\*Imagem:\*\*\s*(.*?)\n*- \*\*Legenda:\*\*\s*(.*?)(?=\n\*\*Post|\n*$)/gs;
         const matches = [...content.matchAll(postPattern)];
 
-        if (matches.length === 0) throw new Error('Formato não reconhecido');
+        if (matches.length === 0) {
+            console.error('Nenhum post encontrado no conteúdo:', content);
+            throw new Error('Formato não reconhecido');
+        }
 
         return matches.map((match, index) => ({
             id: index + 1,
             imageDescription: sanitizeContent(match[1].trim()),
             caption: formatCaption(match[2].trim())
         }));
-    }
 
-    function formatCaption(caption) {
-        const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
-        const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
-        
-        return {
-            text: sanitizeContent(text),
-            hashtags: sanitizeContent(hashtags)
-        };
+    } catch (error) {
+        console.error('Erro no parse:', error);
+        throw new Error('Não foi possível interpretar os posts');
     }
+}
+
 
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
