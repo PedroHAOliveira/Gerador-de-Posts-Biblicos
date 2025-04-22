@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
        
     // Configuração da API com variável de ambiente
     const API_KEY = window.ENV?.API_KEY || '__API_KEY__'; // '__API_KEY__' será substituído pelo Vercel durante o build
-    const API_ENDPOINT = `/gemini.js`;
+    const API_ENDPOINT = './gemini';;
 
     // Event Listeners
     DOM.generateBtn.addEventListener('click', handleGenerateClick);
