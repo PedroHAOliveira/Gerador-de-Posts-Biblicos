@@ -102,13 +102,11 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
             const segment = match[0];
             const id = parseInt(match[1], 10);
 
-            // Extrair descrição da imagem
-            const imgMatch = segment.match(/(?:\*\*?Imagem\*\*?:?)\s*(.+?)(?=\n|$)/i);
-            const imageDescription = imgMatch ? sanitizeContent(imgMatch[1].replace(/^\*\*/, '').trim()) : '';
+            const imgMatch = segment.match(/(?:\*\*?Imagem\*\*?:?)\s*(?:\*\*|\*\*\*|["“])?([\s\S]*?)(?=\n(?:-|\*\*?Legenda|\*\*?Post|\Z))/i);
+            const imageDescription = imgMatch ? sanitizeContent(imgMatch[1]) : '';
 
-            // Extrair legenda
-            const captionMatch = segment.match(/(?:\*\*?Legenda\*\*?:?)\s*["“]?(.*?)['"”]?(?=\n|$)/is);
-            const captionText = captionMatch ? captionMatch[1].replace(/^\*\*/, '').trim() : '';
+            const captionMatch = segment.match(/(?:\*\*?Legenda\*\*?:?)\s*(?:\*\*|\*\*\*|["“])?([\s\S]*?)(?=\n(?:-|\*\*?Imagem|\*\*?Post|\Z))/i);
+            const captionText = captionMatch ? captionMatch[1] : '';
 
             posts.push({ id, imageDescription, caption: formatCaption(captionText) });
         }
@@ -123,6 +121,10 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
         const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
         return { text: sanitizeContent(text), hashtags: sanitizeContent(hashtags) };
+    }
+
+    function sanitizeContent(str) {
+        return str.replace(/^\*\*+/, '').replace(/["“”]+/g, '').trim();
     }
     
     function renderCarousel(posts) {
