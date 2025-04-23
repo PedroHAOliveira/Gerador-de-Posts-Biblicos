@@ -1,4 +1,3 @@
-// script.js - Gerador de Posts para Instagram com Navegação e Cópia
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos DOM
     const DOM = {
@@ -17,10 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentSlide = 0;
     let intervalId;
-    let currentTheme = '';
     let postsData = [];
 
-    // Endpoint da API protegida via função serverless
+    // Endpoint da API
     const API_ENDPOINT = '/api/gemini';
 
     // Event Listeners
@@ -30,123 +28,128 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.copyBtn.addEventListener('click', copyCurrentSlide);
 
     async function handleGenerateClick() {
-        currentTheme = DOM.themeInput.value.trim();
-        
-        if (!currentTheme) {
+        const theme = DOM.themeInput.value.trim();
+        if (!theme) {
             showError('Por favor, digite um tema válido');
             DOM.themeInput.focus();
             return;
         }
-
         try {
-            startLoading();
-            hideError();
+            startLoading(); 
+            hideError(); 
             clearCarousel();
-
-            postsData = await fetchPostsData(currentTheme);
+            
+            postsData = await fetchPostsData(theme);
             renderCarousel(postsData);
-            startCarousel();
+            startCarousel(); 
             showCarouselControls();
             DOM.carouselContainer.style.display = 'block';
-
-        } catch (error) {
-            console.error('Erro na geração:', error);
-            showError(`Erro: ${error.message}`);
+        } catch (err) {
+            console.error('Erro na geração:', err);
+            showError(`Erro: ${err.message}`);
             renderFallbackContent();
+            stopCarousel();
         } finally {
             finishLoading();
         }
     }
 
     async function fetchPostsData(theme) {
-        try {
-            const prompt = buildPrompt(theme);
+        const prompt = buildPrompt(theme);
+        const res = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { 
+                    temperature: 0.8, 
+                    topP: 0.9, 
+                    topK: 40, 
+                    maxOutputTokens: 2000 
+                }
+            })
+        });
 
-            const response = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.8,
-                        topP: 0.9,
-                        topK: 40,
-                        maxOutputTokens: 2000
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return parseApiResponse(data);
-
-        } catch (error) {
-            throw new Error(`Falha ao gerar posts: ${error.message}`);
+        if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error(errJson.error?.message || `HTTP ${res.status}`);
         }
+        
+        const data = await res.json();
+        return parseApiResponse(data);
     }
 
     function buildPrompt(theme) {
-        const customInstruction = DOM.promptInput.value.trim();
-        
+        const extra = DOM.promptInput.value.trim();
         return `Gere apenas 3 posts para Instagram sobre "${theme}" no formato EXATO abaixo:
 
-Post 1:
+**Post 1:**
 - Imagem: [Descrição detalhada referente ao texto bíblico]
 - Legenda: [Texto bíblico em português com 3-5 hashtags e **referência bíblica no final do texto é imprescindível**]
 
-Post 2:
+**Post 2:**
 - Imagem: [Descrição detalhada referente ao texto bíblico]
 - Legenda: [Texto bíblico em português com 3-5 hashtags e **referência bíblica no final do texto é imprescindível**]
 
-Post 3:
+**Post 3:**
 - Imagem: [Descrição detalhada referente ao texto bíblico]
 - Legenda: [Texto bíblico em português com 3-5 hashtags e **referência bíblica no final do texto é imprescindível**]
 
 Regras:
 1. Seja criativo
-2. Referência bíblica no final do texto é imprescindível 
+2. **Referência bíblica no final do texto é imprescindível**
 3. Mantenha este formato exato
 
-${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
+${extra ? `Instruções extras: ${extra}` : ''}`;
     }
 
-    function parseApiResponse(data) {
-        try {
-            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!content) {
-                console.error('Conteúdo da API vazio:', data);
-                throw new Error('Resposta vazia da API');
-            }
-    
-            console.log('Conteúdo bruto da API:', content);
-    
-            // Regex corrigido para bater com **Imagem:** e **Legenda:**
-            const postPattern = /\*\*Post \d+:\*\*\s*\n*- \*\*Imagem:\*\*\s*(.*?)\n*- \*\*Legenda:\*\*\s*(.*?)(?=\n\*\*Post|\n*$)/gs;
-            const matches = [...content.matchAll(postPattern)];
-    
-            if (matches.length === 0) {
-                console.error('Nenhum post encontrado no conteúdo:', content);
-                throw new Error('Formato não reconhecido');
-            }
-    
-            return matches.map((match, index) => ({
-                id: index + 1,
-                imageDescription: sanitizeContent(match[1].trim()),
-                caption: formatCaption(match[2].trim())
-            }));
-    
-        } catch (error) {
-            console.error('Erro no parse:', error);
-            throw new Error('Não foi possível interpretar os posts');
+    function parseApiResponse(response) {
+        const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const postRegex = /\*\*Post\s*(\d+):\*\*[\s\S]*?(?=(\*\*Post\s*\d+:\*\*)|$)/g;
+        const posts = [];
+        let match;
+
+        while ((match = postRegex.exec(text)) !== null) {
+            const segment = match[0];
+            const id = parseInt(match[1], 10);
+
+            const imgMatch = segment.match(/- Imagem:\s*([\s\S]*?)(?=\n- Legenda:)/i);
+            const imageDescription = imgMatch ? sanitizeContent(imgMatch[1]) : '';
+
+            const captionMatch = segment.match(/- Legenda:\s*([\s\S]*?)(?=\n\*\*Post|\Z)/i);
+            const captionText = captionMatch ? captionMatch[1] : '';
+
+            posts.push({ 
+                id, 
+                imageDescription, 
+                caption: formatCaption(captionText) 
+            });
         }
+
+        if (posts.length === 0) throw new Error('Não foi possível interpretar os posts');
+        return posts;
     }
 
+    function formatCaption(caption) {
+        const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
+        const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
+        return { 
+            text: sanitizeContent(text), 
+            hashtags: sanitizeContent(hashtags) 
+        };
+    }
+
+    function sanitizeContent(text) {
+        let cleaned = text
+            .replace(/^\*\*+/, '')
+            .replace(/["“”]+/g, '')
+            .trim();
+
+        const div = document.createElement('div');
+        div.textContent = cleaned;
+        return div.innerHTML.replace(/\n/g, '<br>');
+    }
 
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
@@ -155,7 +158,6 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
         posts.forEach((post, index) => {
             const slide = document.createElement('div');
             slide.className = `post-slide ${index === 0 ? 'active' : ''}`;
-            slide.dataset.index = index;
             slide.innerHTML = `
                 <div class="post-header">Post #${post.id}</div>
                 <div class="post-content">
@@ -174,8 +176,6 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
 
             const dot = document.createElement('button');
             dot.className = `carousel-nav-dot ${index === 0 ? 'active' : ''}`;
-            dot.dataset.index = index;
-            dot.innerHTML = `<span class="sr-only">Post ${post.id}</span>`;
             dot.addEventListener('click', () => goToSlide(index));
             DOM.carouselNav.appendChild(dot);
         });
@@ -280,12 +280,6 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
             </div>
         `;
         DOM.carouselContainer.style.display = 'block';
-    }
-
-    function sanitizeContent(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/\n/g, '<br>');
     }
 
     function startLoading() {
