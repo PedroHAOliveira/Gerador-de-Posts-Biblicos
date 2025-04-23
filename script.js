@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentSlide = 0;
     let intervalId;
-    let currentTheme = '';
     let postsData = [];
 
     // Endpoint da API protegida via função serverless
@@ -30,28 +29,22 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.copyBtn.addEventListener('click', copyCurrentSlide);
 
     async function handleGenerateClick() {
-        currentTheme = DOM.themeInput.value.trim();
-        
-        if (!currentTheme) {
+        const theme = DOM.themeInput.value.trim();
+        if (!theme) {
             showError('Por favor, digite um tema válido');
             DOM.themeInput.focus();
             return;
         }
 
         try {
-            startLoading();
-            hideError();
-            clearCarousel();
-
-            postsData = await fetchPostsData(currentTheme);
+            startLoading(); hideError(); clearCarousel();
+            postsData = await fetchPostsData(theme);
             renderCarousel(postsData);
-            startCarousel();
-            showCarouselControls();
+            startCarousel(); showCarouselControls();
             DOM.carouselContainer.style.display = 'block';
-
-        } catch (error) {
-            console.error('Erro na geração:', error);
-            showError(`Erro: ${error.message}`);
+        } catch (err) {
+            console.error('Erro na geração:', err);
+            showError(`Erro: ${err.message}`);
             renderFallbackContent();
         } finally {
             finishLoading();
@@ -59,41 +52,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchPostsData(theme) {
-        try {
-            const prompt = buildPrompt(theme);
-
-            const response = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.8,
-                        topP: 0.9,
-                        topK: 40,
-                        maxOutputTokens: 2000
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return parseApiResponse(data);
-
-        } catch (error) {
-            throw new Error(`Falha ao gerar posts: ${error.message}`);
+        const prompt = buildPrompt(theme);
+        const res = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
+                                     generationConfig: { temperature:0.8, topP:0.9, topK:40, maxOutputTokens:2000 } })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(()=>({}));
+            throw new Error(err.error?.message || `HTTP ${res.status}`);
         }
+        const data = await res.json();
+        return parseApiResponse(data);
     }
 
     function buildPrompt(theme) {
-        const customInstruction = DOM.promptInput.value.trim();
-        
+        const extra = DOM.promptInput.value.trim();
         return `Gere apenas 3 posts para Instagram sobre "${theme}" no formato EXATO abaixo:
 
 **Post 1:**
@@ -110,39 +85,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
 Regras:
 1. Seja criativo
-2. **Referência bíblica no final do texto é imprescindível**  
+2. **Referência bíblica no final do texto é imprescindível**
 3. Mantenha este formato exato
 
-${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
+${extra ? `Instruções extras: ${extra}` : ''}`;
     }
 
-function parseApiResponse(response) {
-    const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    const matches = [...text.matchAll(/\*\*Post \d+:\*\*\s*-\s*\*\*Imagem:\*\*\s*(.*?)\s*-\s*\*\*Legenda:\*\*\s*"(.*?)"\s*(?=\*\*Post|\Z)/gs)];
-
-    if (!matches || matches.length === 0) {
-        console.error('Nenhum post encontrado no conteúdo:', text);
-        throw new Error("Formato não reconhecido");
+    function parseApiResponse(response) {
+        const raw = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const text = raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+        const segments = text.split(/\*\*Post\s*\d+:\*\*/).slice(1);
+        const posts = segments.map(seg => {
+            // Extrair Imagem
+            let img = '';
+            const m1 = seg.match(/Imagem[:：]?\s*\[?(.+?)\]?\s*(?=\n|$)/i)
+                    || seg.match(/\*\*Imagem:\*\*\s*(.+?)(?=\n|$)/i);
+            if (m1) img = m1[1].trim();
+            // Extrair Legenda
+            let cap = '';
+            const m2 = seg.match(/Legenda[:：]?\s*"?(.+?)"?\s*(?=\n|$)/i)
+                    || seg.match(/\*\*Legenda:\*\*\s*(.+?)(?=\n|$)/i);
+            if (m2) cap = m2[1].trim();
+            return { imageDescription: sanitizeContent(img), caption: formatCaption(cap) };
+        }).filter(p => p.imageDescription || p.caption.text);
+        if (posts.length === 0) throw new Error('Não foi possível interpretar os posts');
+        return posts.map((p,i)=>({ id: i+1, ...p }));
     }
 
-    return matches.map((match, index) => ({
-        id: index + 1,
-        imageDescription: match[1].trim(),
-        caption: formatCaption(match[2].trim())
-    }));
-}
-
-    // Formatar legenda
     function formatCaption(caption) {
-        const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
-        const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
-        
-        return {
-            text: sanitizeContent(text),
-            hashtags: sanitizeContent(hashtags)
-        };
+        const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ')||'';
+        const text = caption.replace(/#[\wÀ-ú]+/g,'').trim();
+        return { text: sanitizeContent(text), hashtags: sanitizeContent(hashtags) };
     }
+
     
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
