@@ -144,16 +144,6 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         };
     }
     
-    function sanitizeContent(text) {
-        let cleaned = text
-            .replace(/^\*\*+/, '')
-            .replace(/["“”]+/g, '')
-            .trim();
-
-        const div = document.createElement('div');
-        div.textContent = cleaned;
-        return div.innerHTML.replace(/\n/g, '<br>');
-    }
 
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
