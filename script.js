@@ -1,3 +1,4 @@
+// script.js - Gerador de Posts para Instagram com Navegação e Cópia
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos DOM
     const DOM = {
@@ -14,12 +15,16 @@ document.addEventListener('DOMContentLoaded', () => {
         copyBtn: document.getElementById('copyBtn')
     };
 
+    // Estado do Carrossel
     let currentSlide = 0;
     let intervalId;
+    let currentTheme = '';
     let postsData = [];
 
-    // Endpoint da API
-    const API_ENDPOINT = '/api/gemini';
+    // Configuração da API com variável de ambiente
+    const API_KEY = window.ENV?.API_KEY || process.env.API_KEY || '';
+    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
 
     // Event Listeners
     DOM.generateBtn.addEventListener('click', handleGenerateClick);
@@ -27,60 +32,80 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.nextBtn.addEventListener('click', showNextSlide);
     DOM.copyBtn.addEventListener('click', copyCurrentSlide);
 
+    // Função Principal
     async function handleGenerateClick() {
-        const theme = DOM.themeInput.value.trim();
-        if (!theme) {
+        currentTheme = DOM.themeInput.value.trim();
+        
+        if (!currentTheme) {
             showError('Por favor, digite um tema válido');
             DOM.themeInput.focus();
             return;
         }
+
         try {
-            startLoading(); 
-            hideError(); 
+            startLoading();
+            hideError();
             clearCarousel();
-            
-            postsData = await fetchPostsData(theme);
+
+            postsData = await fetchPostsData(currentTheme);
             renderCarousel(postsData);
-            startCarousel(); 
+            startCarousel();
             showCarouselControls();
             DOM.carouselContainer.style.display = 'block';
-        } catch (err) {
-            console.error('Erro na geração:', err);
-            showError(`Erro: ${err.message}`);
+
+        } catch (error) {
+            console.error('Erro na geração:', error);
+            showError(`Erro: ${error.message}`);
             renderFallbackContent();
-            stopCarousel();
         } finally {
             finishLoading();
         }
     }
 
+    // Obter dados da API
     async function fetchPostsData(theme) {
-        const prompt = buildPrompt(theme);
-        const res = await fetch(API_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { 
-                    temperature: 0.8, 
-                    topP: 0.9, 
-                    topK: 40, 
-                    maxOutputTokens: 2000 
-                }
-            })
-        });
+        try {
+            const prompt = buildPrompt(theme);
+            console.log('Prompt enviado:', prompt);
 
-        if (!res.ok) {
-            const errJson = await res.json().catch(() => ({}));
-            throw new Error(errJson.error?.message || `HTTP ${res.status}`);
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.8,
+                        topP: 0.9,
+                        topK: 40,
+                        maxOutputTokens: 2000
+                    }
+                })
+            });
+
+            console.log('Status da resposta:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Erro na resposta da API:', errorData);
+                throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('Resposta completa da API:', JSON.stringify(data, null, 2));
+            return parseApiResponse(data);
+
+        } catch (error) {
+            console.error('Erro na API:', error);
+            throw new Error(`Falha ao gerar posts: ${error.message}`);
         }
-        
-        const data = await res.json();
-        return parseApiResponse(data);
     }
 
+    // Construir o prompt
     function buildPrompt(theme) {
-        const extra = DOM.promptInput.value.trim();
+        const customInstruction = DOM.promptInput.value.trim();
+        
         return `Gere apenas 3 posts para Instagram sobre "${theme}" no formato EXATO abaixo:
 
 **Post 1:**
@@ -97,67 +122,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
 Regras:
 1. Seja criativo
-2. **Referência bíblica no final do texto é imprescindível**
+2. **Referência bíblica no final do texto é imprescindível**  
 3. Mantenha este formato exato
 
-${extra ? `Instruções extras: ${extra}` : ''}`;
+${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     }
 
-    function parseApiResponse(response) {
-        const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const postRegex = /\*\*Post\s*(\d+):\*\*[\s\S]*?(?=(\*\*Post\s*\d+:\*\*)|$)/g;
-        const posts = [];
-        let match;
+    // Processar resposta da API
+    function parseApiResponse(data) {
+        try {
+            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!content) {
+                console.error('Conteúdo da API vazio:', data);
+                throw new Error('Resposta vazia da API');
+            }
 
-        while ((match = postRegex.exec(text)) !== null) {
-            const segment = match[0];
-            const id = parseInt(match[1], 10);
+            console.log('Conteúdo bruto da API:', content);
 
-            const imgMatch = segment.match(/- Imagem:\s*([\s\S]*?)(?=\n- Legenda:)/i);
-            const imageDescription = imgMatch ? sanitizeContent(imgMatch[1]) : '';
+            // Extrair posts usando regex (mais flexível)
+            const postPattern = /\*\*Post \d+:\*\*\s*- Imagem:\s*(.*?)\s*- Legenda:\s*(.*?)(?=\n\*\*Post|\n$)/gs;
+            const matches = [...content.matchAll(postPattern)];
 
-            const captionMatch = segment.match(/- Legenda:\s*([\s\S]*?)(?=\n\*\*Post|\Z)/i);
-            const captionText = captionMatch ? captionMatch[1] : '';
+            if (matches.length === 0) {
+                console.error('Nenhum post encontrado no conteúdo:', content);
+                throw new Error('Formato não reconhecido');
+            }
 
-            posts.push({ 
-                id, 
-                imageDescription, 
-                caption: formatCaption(captionText) 
-            });
+            return matches.map((match, index) => ({
+                id: index + 1,
+                imageDescription: sanitizeContent(match[1].trim()),
+                caption: formatCaption(match[2].trim())
+            }));
+
+        } catch (error) {
+            console.error('Erro no parse:', error);
+            throw new Error('Não foi possível interpretar os posts');
         }
-
-        if (posts.length === 0) throw new Error('Não foi possível interpretar os posts');
-        return posts;
     }
 
+    // Formatar legenda
     function formatCaption(caption) {
         const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
         const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
-        return { 
-            text: sanitizeContent(text), 
-            hashtags: sanitizeContent(hashtags) 
+        
+        return {
+            text: sanitizeContent(text),
+            hashtags: sanitizeContent(hashtags)
         };
     }
 
-    function sanitizeContent(text) {
-        let cleaned = text
-            .replace(/^\*\*+/, '')
-            .replace(/["“”]+/g, '')
-            .trim();
-
-        const div = document.createElement('div');
-        div.textContent = cleaned;
-        return div.innerHTML.replace(/\n/g, '<br>');
-    }
-
+    // Renderizar carrossel
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
         DOM.carouselNav.innerHTML = '';
 
         posts.forEach((post, index) => {
+            // Criar slide
             const slide = document.createElement('div');
             slide.className = `post-slide ${index === 0 ? 'active' : ''}`;
+            slide.dataset.index = index;
             slide.innerHTML = `
                 <div class="post-header">Post #${post.id}</div>
                 <div class="post-content">
@@ -174,13 +197,17 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
             `;
             DOM.carouselContainer.appendChild(slide);
 
+            // Criar indicador de navegação
             const dot = document.createElement('button');
             dot.className = `carousel-nav-dot ${index === 0 ? 'active' : ''}`;
+            dot.dataset.index = index;
+            dot.innerHTML = `<span class="sr-only">Post ${post.id}</span>`;
             dot.addEventListener('click', () => goToSlide(index));
             DOM.carouselNav.appendChild(dot);
         });
     }
 
+    // Navegação
     function showNextSlide() {
         const slides = document.querySelectorAll('.post-slide');
         currentSlide = (currentSlide + 1) % slides.length;
@@ -205,11 +232,13 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         document.querySelectorAll('.post-slide').forEach((slide, i) => {
             slide.classList.toggle('active', i === currentSlide);
         });
+        
         document.querySelectorAll('.carousel-nav-dot').forEach((dot, i) => {
             dot.classList.toggle('active', i === currentSlide);
         });
     }
 
+    // Copiar slide atual
     function copyCurrentSlide() {
         if (postsData.length === 0) return;
 
@@ -219,7 +248,9 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
                              `🏷️ Hashtags: ${currentPost.caption.hashtags.replace(/<br>/g, ' ')}`;
 
         navigator.clipboard.writeText(contentToCopy)
-            .then(showCopyFeedback)
+            .then(() => {
+                showCopyFeedback();
+            })
             .catch(err => {
                 console.error('Erro ao copiar:', err);
                 showError('Falha ao copiar. Tente novamente.');
@@ -238,6 +269,7 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         }, 1000);
     }
 
+    // Controles do carrossel
     function startCarousel() {
         stopCarousel();
         intervalId = setInterval(showNextSlide, 8000);
@@ -262,11 +294,13 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         DOM.carouselContainer.innerHTML = '<div class="carousel-nav" id="carouselNav"></div>';
         DOM.carouselNav = document.getElementById('carouselNav');
         currentSlide = 0;
+        
         DOM.prevBtn.style.display = 'none';
         DOM.nextBtn.style.display = 'none';
         DOM.copyBtn.style.display = 'none';
     }
 
+    // Fallback
     function renderFallbackContent() {
         DOM.carouselContainer.innerHTML = `
             <div class="post-slide active">
@@ -280,6 +314,13 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
             </div>
         `;
         DOM.carouselContainer.style.display = 'block';
+    }
+
+    // Utilitários
+    function sanitizeContent(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML.replace(/\n/g, '<br>');
     }
 
     function startLoading() {
