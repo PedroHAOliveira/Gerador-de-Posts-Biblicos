@@ -116,25 +116,22 @@ Regras:
 ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     }
 
-    function parseApiResponse(response) {
-        const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const matches = [...text.matchAll(/\*\*Post \d+:\*\*\s*- \*\*Imagem:\*\* (.*?)\s*- \*\*Legenda:\*\* (.*?)\s*(?=\*\*Post|\Z)/gs)];
-    
-        if (!matches || matches.length === 0) {
-            throw new Error("Formato não reconhecido");
-        }
-    
-        return matches.map((match, index) => ({
-            id: index + 1,
-            imageDescription: match[1].trim(),
-            caption: formatCaption(match[2].trim())
-        }));
-        
-    } catch (error) {
-            console.error('Erro no parse:', error);
-            throw new Error('Não foi possível interpretar os posts');
-        }
+function parseApiResponse(response) {
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    const matches = [...text.matchAll(/\*\*Post \d+:\*\*\s*-\s*\*\*Imagem:\*\*\s*(.*?)\s*-\s*\*\*Legenda:\*\*\s*"(.*?)"\s*(?=\*\*Post|\Z)/gs)];
+
+    if (!matches || matches.length === 0) {
+        console.error('Nenhum post encontrado no conteúdo:', text);
+        throw new Error("Formato não reconhecido");
     }
+
+    return matches.map((match, index) => ({
+        id: index + 1,
+        imageDescription: match[1].trim(),
+        caption: formatCaption(match[2].trim())
+    }));
+}
 
     // Formatar legenda
     function formatCaption(caption) {
