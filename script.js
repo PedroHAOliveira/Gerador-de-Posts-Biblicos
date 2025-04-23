@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos DOM
     const DOM = {
@@ -18,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let intervalId;
     let postsData = [];
 
-    // Endpoint da API
+    // Endpoint da API protegida via função serverless
     const API_ENDPOINT = '/api/gemini';
 
     // Event Listeners
@@ -35,20 +36,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         try {
-            startLoading(); 
-            hideError(); 
-            clearCarousel();
-            
+            startLoading(); hideError(); clearCarousel();
             postsData = await fetchPostsData(theme);
             renderCarousel(postsData);
-            startCarousel(); 
-            showCarouselControls();
+            startCarousel(); showCarouselControls();
             DOM.carouselContainer.style.display = 'block';
         } catch (err) {
             console.error('Erro na geração:', err);
             showError(`Erro: ${err.message}`);
             renderFallbackContent();
-            stopCarousel();
         } finally {
             finishLoading();
         }
@@ -61,20 +57,13 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { 
-                    temperature: 0.8, 
-                    topP: 0.9, 
-                    topK: 40, 
-                    maxOutputTokens: 2000 
-                }
+                generationConfig: { temperature: 0.8, topP: 0.9, topK: 40, maxOutputTokens: 2000 }
             })
         });
-
         if (!res.ok) {
             const errJson = await res.json().catch(() => ({}));
             throw new Error(errJson.error?.message || `HTTP ${res.status}`);
         }
-        
         const data = await res.json();
         return parseApiResponse(data);
     }
@@ -109,42 +98,34 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         const postRegex = /\*\*Post\s*(\d+):\*\*[\s\S]*?(?=(\*\*Post\s*\d+:\*\*)|$)/g;
         const posts = [];
         let match;
-
         while ((match = postRegex.exec(text)) !== null) {
             const segment = match[0];
             const id = parseInt(match[1], 10);
 
-            const imgMatch = segment.match(/- Imagem:\s*([\s\S]*?)(?=\n- Legenda:)/i);
+            const imgMatch = segment.match(/(?:\*\*?Imagem\*\*?:?)\s*(?:\*\*|\*\*\*|["“])?([\s\S]*?)(?=\n(?:-|\*\*?Legenda|\*\*?Post|\Z))/i);
             const imageDescription = imgMatch ? sanitizeContent(imgMatch[1]) : '';
 
-            const captionMatch = segment.match(/- Legenda:\s*([\s\S]*?)(?=\n\*\*Post|\Z)/i);
+            const captionMatch = segment.match(/(?:\*\*?Legenda\*\*?:?)\s*(?:\*\*|\*\*\*|["“])?([\s\S]*?)(?=\n(?:-|\*\*?Imagem|\*\*?Post|\Z))/i);
             const captionText = captionMatch ? captionMatch[1] : '';
 
-            posts.push({ 
-                id, 
-                imageDescription, 
-                caption: formatCaption(captionText) // Esta chamada estava causando o erro
-            });
+            posts.push({ id, imageDescription, caption: formatCaption(captionText) });
         }
-
-        if (posts.length === 0) throw new Error('Não foi possível interpretar os posts');
+        if (posts.length === 0) {
+            console.error('Nenhum post encontrado no conteúdo:', text);
+            throw new Error('Não foi possível interpretar os posts');
+        }
         return posts;
     }
 
-    // ADICIONE ESTA FUNÇÃO NO ESCOPO CORRETO (mesmo nível que parseApiResponse)
     function formatCaption(caption) {
-        if (!caption) return { text: '', hashtags: '' };
-        
         const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
         const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
-        
-        return { 
-            text: sanitizeContent(text), 
-            hashtags: sanitizeContent(hashtags) 
-        };
+        return { text: sanitizeContent(text), hashtags: sanitizeContent(hashtags) };
     }
-    
 
+    function sanitizeContent(str) {
+        return str.replace(/^\*\*+/, '').replace(/["“”]+/g, '').trim();
+    }
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
         DOM.carouselNav.innerHTML = '';
@@ -152,6 +133,7 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         posts.forEach((post, index) => {
             const slide = document.createElement('div');
             slide.className = `post-slide ${index === 0 ? 'active' : ''}`;
+            slide.dataset.index = index;
             slide.innerHTML = `
                 <div class="post-header">Post #${post.id}</div>
                 <div class="post-content">
@@ -170,6 +152,8 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
 
             const dot = document.createElement('button');
             dot.className = `carousel-nav-dot ${index === 0 ? 'active' : ''}`;
+            dot.dataset.index = index;
+            dot.innerHTML = `<span class="sr-only">Post ${post.id}</span>`;
             dot.addEventListener('click', () => goToSlide(index));
             DOM.carouselNav.appendChild(dot);
         });
@@ -274,6 +258,12 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
             </div>
         `;
         DOM.carouselContainer.style.display = 'block';
+    }
+
+    function sanitizeContent(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML.replace(/\n/g, '<br>');
     }
 
     function startLoading() {
