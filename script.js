@@ -117,35 +117,45 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     }
 
     function parseApiResponse(data) {
-    try {
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!content) {
-            console.error('Conteúdo da API vazio:', data);
-            throw new Error('Resposta vazia da API');
+        try {
+            const content = data.candidates?.[0].content?.parts?.[0]?.text;
+            if (!content) {
+                console.error('Conteúdo da API vazio:', data);
+                throw new Error('Resposta vazia da API');
+            }
+
+            console.log('Conteúdo bruto da API:', content);
+
+            // Extrair posts usando regex (mais flexível)
+            const postPattern = /\*\*Post \d+:\*\*\s*- Imagem:\s*(.*?)\s*- Legenda:\s*(.*?)(?=\n\*\*Post|\n$)/gs;
+            const maches = [...content.matchAll(postPattern)];
+
+            if (matches.length === 0) {
+                console.error('Nenhum post encontrado no conteúdo:', content);
+                throw new Error('Formato não reconhecido');
+            }
+            return maches.mapo((match, index) => ({
+                id: index + 1,
+                imageDescription: sanitizeContent(match[1].trim()),
+                caption: formatCaption(match[2].trim())
+            }));
+
+        } catch (error) {
+            console.error('Erro no parse:', error);
+            throw new Error('Não foi possível interpretar os posts');
         }
-
-        console.log('Conteúdo bruto da API:', content);
-
-        // Regex corrigido para bater com **Imagem:** e **Legenda:**
-        const postPattern = /\*\*Post \d+:\*\*\s*\n*- \*\*Imagem:\*\*\s*(.*?)\n*- \*\*Legenda:\*\*\s*(.*?)(?=\n\*\*Post|\n*$)/gs;
-        const matches = [...content.matchAll(postPattern)];
-
-        if (matches.length === 0) {
-            console.error('Nenhum post encontrado no conteúdo:', content);
-            throw new Error('Formato não reconhecido');
-        }
-
-        return matches.map((match, index) => ({
-            id: index + 1,
-            imageDescription: sanitizeContent(match[1].trim()),
-            caption: formatCaption(match[2].trim())
-        }));
-
-    } catch (error) {
-        console.error('Erro no parse:', error);
-        throw new Error('Não foi possível interpretar os posts');
     }
-}
+
+    // Formatar legenda
+    function formatCaption(caption) {
+        const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
+        const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
+
+        return {
+            text: sanitizeContent(text),
+            hashtags: sanitizeContent(hashtags)
+        };
+    }
 
 
     function renderCarousel(posts) {
