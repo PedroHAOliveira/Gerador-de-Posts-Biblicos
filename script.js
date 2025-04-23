@@ -89,48 +89,59 @@ Regras:
 2. **Referência bíblica no final do texto é imprescindível**
 3. Mantenha este formato exato
 
-${extra ? `Instruções extras: ${extra}` : ''}`;
+${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     }
 
-    function parseApiResponse(response) {
-        const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const postRegex = /\*\*Post\s*(\d+):\*\*[\s\S]*?(?=(\*\*Post\s*\d+:\*\*)|$)/g;
-        const posts = [];
-        let match;
-        while ((match = postRegex.exec(text)) !== null) {
-            const segment = match[0];
-            const id = parseInt(match[1], 10);
+    // Processar resposta da API
+    function parseApiResponse(data) {
+        try {
+            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!content) {
+                console.error('Conteúdo da API vazio:', data);
+                throw new Error('Resposta vazia da API');
+            }
 
-            const imgMatch = segment.match(/(?:\*\*?Imagem\*\*?:?)\s*(?:\*\*|\*\*\*|["“])?([\s\S]*?)(?=\n(?:-|\*\*?Legenda|\*\*?Post|\Z))/i);
-            const imageDescription = imgMatch ? sanitizeContent(imgMatch[1]) : '';
+            console.log('Conteúdo bruto da API:', content);
 
-            const captionMatch = segment.match(/(?:\*\*?Legenda\*\*?:?)\s*(?:\*\*|\*\*\*|["“])?([\s\S]*?)(?=\n(?:-|\*\*?Imagem|\*\*?Post|\Z))/i);
-            const captionText = captionMatch ? captionMatch[1] : '';
+            // Extrair posts usando regex (mais flexível)
+            const postPattern = /\*\*Post \d+:\*\*\s*- Imagem:\s*(.*?)\s*- Legenda:\s*(.*?)(?=\n\*\*Post|\n$)/gs;
+            const matches = [...content.matchAll(postPattern)];
 
-            posts.push({ id, imageDescription, caption: formatCaption(captionText) });
-        }
-        if (posts.length === 0) {
-            console.error('Nenhum post encontrado no conteúdo:', text);
+            if (matches.length === 0) {
+                console.error('Nenhum post encontrado no conteúdo:', content);
+                throw new Error('Formato não reconhecido');
+            }
+
+            return matches.map((match, index) => ({
+                id: index + 1,
+                imageDescription: sanitizeContent(match[1].trim()),
+                caption: formatCaption(match[2].trim())
+            }));
+
+        } catch (error) {
+            console.error('Erro no parse:', error);
             throw new Error('Não foi possível interpretar os posts');
         }
-        return posts;
     }
 
+    // Formatar legenda
     function formatCaption(caption) {
         const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
         const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
-        return { text: sanitizeContent(text), hashtags: sanitizeContent(hashtags) };
+        
+        return {
+            text: sanitizeContent(text),
+            hashtags: sanitizeContent(hashtags)
+        };
     }
 
-    function sanitizeContent(str) {
-        return str.replace(/^\*\*+/, '').replace(/["“”]+/g, '').trim();
-    }
+    // Renderizar carrossel
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
         DOM.carouselNav.innerHTML = '';
 
         posts.forEach((post, index) => {
+            // Criar slide
             const slide = document.createElement('div');
             slide.className = `post-slide ${index === 0 ? 'active' : ''}`;
             slide.dataset.index = index;
@@ -150,6 +161,7 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
             `;
             DOM.carouselContainer.appendChild(slide);
 
+            // Criar indicador de navegação
             const dot = document.createElement('button');
             dot.className = `carousel-nav-dot ${index === 0 ? 'active' : ''}`;
             dot.dataset.index = index;
@@ -159,6 +171,7 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         });
     }
 
+    // Navegação
     function showNextSlide() {
         const slides = document.querySelectorAll('.post-slide');
         currentSlide = (currentSlide + 1) % slides.length;
@@ -183,11 +196,13 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         document.querySelectorAll('.post-slide').forEach((slide, i) => {
             slide.classList.toggle('active', i === currentSlide);
         });
+        
         document.querySelectorAll('.carousel-nav-dot').forEach((dot, i) => {
             dot.classList.toggle('active', i === currentSlide);
         });
     }
 
+    // Copiar slide atual
     function copyCurrentSlide() {
         if (postsData.length === 0) return;
 
@@ -197,7 +212,9 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
                              `🏷️ Hashtags: ${currentPost.caption.hashtags.replace(/<br>/g, ' ')}`;
 
         navigator.clipboard.writeText(contentToCopy)
-            .then(showCopyFeedback)
+            .then(() => {
+                showCopyFeedback();
+            })
             .catch(err => {
                 console.error('Erro ao copiar:', err);
                 showError('Falha ao copiar. Tente novamente.');
@@ -216,6 +233,7 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         }, 1000);
     }
 
+    // Controles do carrossel
     function startCarousel() {
         stopCarousel();
         intervalId = setInterval(showNextSlide, 8000);
@@ -240,11 +258,13 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         DOM.carouselContainer.innerHTML = '<div class="carousel-nav" id="carouselNav"></div>';
         DOM.carouselNav = document.getElementById('carouselNav');
         currentSlide = 0;
+        
         DOM.prevBtn.style.display = 'none';
         DOM.nextBtn.style.display = 'none';
         DOM.copyBtn.style.display = 'none';
     }
 
+    // Fallback
     function renderFallbackContent() {
         DOM.carouselContainer.innerHTML = `
             <div class="post-slide active">
@@ -260,6 +280,7 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         DOM.carouselContainer.style.display = 'block';
     }
 
+    // Utilitários
     function sanitizeContent(text) {
         const div = document.createElement('div');
         div.textContent = text;
