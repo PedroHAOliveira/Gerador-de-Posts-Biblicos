@@ -126,7 +126,6 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
     function sanitizeContent(str) {
         return str.replace(/^\*\*+/, '').replace(/["“”]+/g, '').trim();
     }
-    
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
         DOM.carouselNav.innerHTML = '';
