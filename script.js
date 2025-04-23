@@ -116,33 +116,21 @@ Regras:
 ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     }
 
-    // Processar resposta da API
-    function parseApiResponse(data) {
-        try {
-            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!content) {
-                console.error('Conteúdo da API vazio:', data);
-                throw new Error('Resposta vazia da API');
-            }
-
-            console.log('Conteúdo bruto da API:', content);
-
-            // Extrair posts usando regex (mais flexível)
-            const postPattern = /\*\*Post \d+:\*\*\s*- Imagem:\s*(.*?)\s*- Legenda:\s*(.*?)(?=\n\*\*Post|\n$)/gs;
-            const matches = [...content.matchAll(postPattern)];
-
-            if (matches.length === 0) {
-                console.error('Nenhum post encontrado no conteúdo:', content);
-                throw new Error('Formato não reconhecido');
-            }
-
-            return matches.map((match, index) => ({
-                id: index + 1,
-                imageDescription: sanitizeContent(match[1].trim()),
-                caption: formatCaption(match[2].trim())
-            }));
-
-        } catch (error) {
+    function parseApiResponse(response) {
+        const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const matches = [...text.matchAll(/\*\*Post \d+:\*\*\s*- \*\*Imagem:\*\* (.*?)\s*- \*\*Legenda:\*\* (.*?)\s*(?=\*\*Post|\Z)/gs)];
+    
+        if (!matches || matches.length === 0) {
+            throw new Error("Formato não reconhecido");
+        }
+    
+        return matches.map((match, index) => ({
+            id: index + 1,
+            imageDescription: match[1].trim(),
+            caption: formatCaption(match[2].trim())
+        }));
+        
+    } catch (error) {
             console.error('Erro no parse:', error);
             throw new Error('Não foi possível interpretar os posts');
         }
