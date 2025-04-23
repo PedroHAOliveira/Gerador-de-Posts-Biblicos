@@ -1,6 +1,3 @@
-// script.js - Gerador de Posts para Instagram com Navegação e Cópia
-// script.js - Gerador de Posts para Instagram com Navegação e Cópia
-// Versão reforçada do parseApiResponse para maior robustez
 
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos DOM
@@ -107,11 +104,11 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
 
             // Extrair descrição da imagem
             const imgMatch = segment.match(/(?:\*\*?Imagem\*\*?:?)\s*(.+?)(?=\n|$)/i);
-            const imageDescription = imgMatch ? sanitizeContent(imgMatch[1].trim()) : '';
+            const imageDescription = imgMatch ? sanitizeContent(imgMatch[1].replace(/^\*\*/, '').trim()) : '';
 
             // Extrair legenda
-            const captionMatch = segment.match(/(?:\*\*?Legenda\*\*?:?)\s*["“]?(.+?)["”]?(?=\n|$)/i);
-            const captionText = captionMatch ? captionMatch[1].trim() : '';
+            const captionMatch = segment.match(/(?:\*\*?Legenda\*\*?:?)\s*["“]?(.*?)['"”]?(?=\n|$)/is);
+            const captionText = captionMatch ? captionMatch[1].replace(/^\*\*/, '').trim() : '';
 
             posts.push({ id, imageDescription, caption: formatCaption(captionText) });
         }
@@ -127,7 +124,6 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
         return { text: sanitizeContent(text), hashtags: sanitizeContent(hashtags) };
     }
-
     
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
