@@ -22,8 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let postsData = [];
 
     // Configuração da API com variável de ambiente
-    const API_KEY = window.ENV?.API_KEY || process.env.API_KEY || '';
-    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    
+    const API_ENDPOINT = '/api/gemini';
 
 
     // Event Listeners
