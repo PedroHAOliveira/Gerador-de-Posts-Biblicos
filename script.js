@@ -116,9 +116,10 @@ Regras:
 ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     }
 
+    // Processar resposta da API
     function parseApiResponse(data) {
         try {
-            const content = data.candidates?.[0].content?.parts?.[0]?.text;
+            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!content) {
                 console.error('Conteúdo da API vazio:', data);
                 throw new Error('Resposta vazia da API');
@@ -128,13 +129,14 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
 
             // Extrair posts usando regex (mais flexível)
             const postPattern = /\*\*Post \d+:\*\*\s*- Imagem:\s*(.*?)\s*- Legenda:\s*(.*?)(?=\n\*\*Post|\n$)/gs;
-            const maches = [...content.matchAll(postPattern)];
+            const matches = [...content.matchAll(postPattern)];
 
             if (matches.length === 0) {
                 console.error('Nenhum post encontrado no conteúdo:', content);
                 throw new Error('Formato não reconhecido');
             }
-            return maches.mapo((match, index) => ({
+
+            return matches.map((match, index) => ({
                 id: index + 1,
                 imageDescription: sanitizeContent(match[1].trim()),
                 caption: formatCaption(match[2].trim())
@@ -150,13 +152,12 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     function formatCaption(caption) {
         const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
         const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
-
+        
         return {
             text: sanitizeContent(text),
             hashtags: sanitizeContent(hashtags)
         };
     }
-
 
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
