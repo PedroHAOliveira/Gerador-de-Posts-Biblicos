@@ -158,7 +158,7 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
             hashtags: sanitizeContent(hashtags)
         };
     }
-
+    
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
         DOM.carouselNav.innerHTML = '';
