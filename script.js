@@ -1,4 +1,7 @@
 // script.js - Gerador de Posts para Instagram com Navegação e Cópia
+// script.js - Gerador de Posts para Instagram com Navegação e Cópia
+// Versão reforçada do parseApiResponse para maior robustez
+
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos DOM
     const DOM = {
@@ -35,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
             DOM.themeInput.focus();
             return;
         }
-
         try {
             startLoading(); hideError(); clearCarousel();
             postsData = await fetchPostsData(theme);
@@ -56,12 +58,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
-                                     generationConfig: { temperature:0.8, topP:0.9, topK:40, maxOutputTokens:2000 } })
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.8, topP: 0.9, topK: 40, maxOutputTokens: 2000 }
+            })
         });
         if (!res.ok) {
-            const err = await res.json().catch(()=>({}));
-            throw new Error(err.error?.message || `HTTP ${res.status}`);
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error(errJson.error?.message || `HTTP ${res.status}`);
         }
         const data = await res.json();
         return parseApiResponse(data);
@@ -92,29 +96,35 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
     }
 
     function parseApiResponse(response) {
-        const raw = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const text = raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-        const segments = text.split(/\*\*Post\s*\d+:\*\*/).slice(1);
-        const posts = segments.map(seg => {
-            // Extrair Imagem
-            let img = '';
-            const m1 = seg.match(/Imagem[:：]?\s*\[?(.+?)\]?\s*(?=\n|$)/i)
-                    || seg.match(/\*\*Imagem:\*\*\s*(.+?)(?=\n|$)/i);
-            if (m1) img = m1[1].trim();
-            // Extrair Legenda
-            let cap = '';
-            const m2 = seg.match(/Legenda[:：]?\s*"?(.+?)"?\s*(?=\n|$)/i)
-                    || seg.match(/\*\*Legenda:\*\*\s*(.+?)(?=\n|$)/i);
-            if (m2) cap = m2[1].trim();
-            return { imageDescription: sanitizeContent(img), caption: formatCaption(cap) };
-        }).filter(p => p.imageDescription || p.caption.text);
-        if (posts.length === 0) throw new Error('Não foi possível interpretar os posts');
-        return posts.map((p,i)=>({ id: i+1, ...p }));
+        const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const postRegex = /\*\*Post\s*(\d+):\*\*[\s\S]*?(?=(\*\*Post\s*\d+:\*\*)|$)/g;
+        const posts = [];
+        let match;
+        while ((match = postRegex.exec(text)) !== null) {
+            const segment = match[0];
+            const id = parseInt(match[1], 10);
+
+            // Extrair descrição da imagem
+            const imgMatch = segment.match(/(?:\*\*?Imagem\*\*?:?)\s*(.+?)(?=\n|$)/i);
+            const imageDescription = imgMatch ? sanitizeContent(imgMatch[1].trim()) : '';
+
+            // Extrair legenda
+            const captionMatch = segment.match(/(?:\*\*?Legenda\*\*?:?)\s*["“]?(.+?)["”]?(?=\n|$)/i);
+            const captionText = captionMatch ? captionMatch[1].trim() : '';
+
+            posts.push({ id, imageDescription, caption: formatCaption(captionText) });
+        }
+        if (posts.length === 0) {
+            console.error('Nenhum post encontrado no conteúdo:', text);
+            throw new Error('Não foi possível interpretar os posts');
+        }
+        return posts;
     }
 
     function formatCaption(caption) {
-        const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ')||'';
-        const text = caption.replace(/#[\wÀ-ú]+/g,'').trim();
+        const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
+        const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
         return { text: sanitizeContent(text), hashtags: sanitizeContent(hashtags) };
     }
 
