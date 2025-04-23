@@ -123,7 +123,7 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
             posts.push({ 
                 id, 
                 imageDescription, 
-                caption: formatCaption(captionText) 
+                caption: formatCaption(captionText) // Esta chamada estava causando o erro
             });
         }
 
@@ -131,15 +131,19 @@ ${extra ? `Instruções extras: ${extra}` : ''}`;
         return posts;
     }
 
+    // ADICIONE ESTA FUNÇÃO NO ESCOPO CORRETO (mesmo nível que parseApiResponse)
     function formatCaption(caption) {
+        if (!caption) return { text: '', hashtags: '' };
+        
         const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
         const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
+        
         return { 
             text: sanitizeContent(text), 
             hashtags: sanitizeContent(hashtags) 
         };
     }
-
+    
     function sanitizeContent(text) {
         let cleaned = text
             .replace(/^\*\*+/, '')
