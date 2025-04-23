@@ -15,16 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
         copyBtn: document.getElementById('copyBtn')
     };
 
-    // Estado do Carrossel
     let currentSlide = 0;
     let intervalId;
     let currentTheme = '';
     let postsData = [];
 
-    // Configuração da API com variável de ambiente
-    
+    // Endpoint da API protegida via função serverless
     const API_ENDPOINT = '/api/gemini';
-
 
     // Event Listeners
     DOM.generateBtn.addEventListener('click', handleGenerateClick);
@@ -32,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.nextBtn.addEventListener('click', showNextSlide);
     DOM.copyBtn.addEventListener('click', copyCurrentSlide);
 
-    // Função Principal
     async function handleGenerateClick() {
         currentTheme = DOM.themeInput.value.trim();
         
@@ -62,11 +58,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Obter dados da API
     async function fetchPostsData(theme) {
         try {
             const prompt = buildPrompt(theme);
-            console.log('Prompt enviado:', prompt);
 
             const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
@@ -84,25 +78,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
-            console.log('Status da resposta:', response.status, response.statusText);
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                console.error('Erro na resposta da API:', errorData);
                 throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
             }
             
             const data = await response.json();
-            console.log('Resposta completa da API:', JSON.stringify(data, null, 2));
             return parseApiResponse(data);
 
         } catch (error) {
-            console.error('Erro na API:', error);
             throw new Error(`Falha ao gerar posts: ${error.message}`);
         }
     }
 
-    // Construir o prompt
     function buildPrompt(theme) {
         const customInstruction = DOM.promptInput.value.trim();
         
@@ -128,56 +116,43 @@ Regras:
 ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
     }
 
-    // Processar resposta da API
-    function parseApiResponse(data) {
-        try {
-            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!content) {
-                console.error('Conteúdo da API vazio:', data);
-                throw new Error('Resposta vazia da API');
-            }
-
-            console.log('Conteúdo bruto da API:', content);
-
-            // Extrair posts usando regex (mais flexível)
-            const postPattern = /\*\*Post \d+:\*\*\s*- Imagem:\s*(.*?)\s*- Legenda:\s*(.*?)(?=\n\*\*Post|\n$)/gs;
-            const matches = [...content.matchAll(postPattern)];
-
-            if (matches.length === 0) {
-                console.error('Nenhum post encontrado no conteúdo:', content);
-                throw new Error('Formato não reconhecido');
-            }
-
-            return matches.map((match, index) => ({
-                id: index + 1,
-                imageDescription: sanitizeContent(match[1].trim()),
-                caption: formatCaption(match[2].trim())
-            }));
-
-        } catch (error) {
-            console.error('Erro no parse:', error);
-            throw new Error('Não foi possível interpretar os posts');
+function parseApiResponse(data) {
+    try {
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!content) {
+            console.error('Conteúdo da API vazio:', data);
+            throw new Error('Resposta vazia da API');
         }
-    }
 
-    // Formatar legenda
-    function formatCaption(caption) {
-        const hashtags = caption.match(/#[\wÀ-ú]+/g)?.join(' ') || '';
-        const text = caption.replace(/#[\wÀ-ú]+/g, '').trim();
-        
-        return {
-            text: sanitizeContent(text),
-            hashtags: sanitizeContent(hashtags)
-        };
-    }
+        console.log('Conteúdo bruto da API:', content);
 
-    // Renderizar carrossel
+        // Regex corrigido para bater com **Imagem:** e **Legenda:**
+        const postPattern = /\*\*Post \d+:\*\*\s*\n*- \*\*Imagem:\*\*\s*(.*?)\n*- \*\*Legenda:\*\*\s*(.*?)(?=\n\*\*Post|\n*$)/gs;
+        const matches = [...content.matchAll(postPattern)];
+
+        if (matches.length === 0) {
+            console.error('Nenhum post encontrado no conteúdo:', content);
+            throw new Error('Formato não reconhecido');
+        }
+
+        return matches.map((match, index) => ({
+            id: index + 1,
+            imageDescription: sanitizeContent(match[1].trim()),
+            caption: formatCaption(match[2].trim())
+        }));
+
+    } catch (error) {
+        console.error('Erro no parse:', error);
+        throw new Error('Não foi possível interpretar os posts');
+    }
+}
+
+
     function renderCarousel(posts) {
         DOM.carouselContainer.innerHTML = '';
         DOM.carouselNav.innerHTML = '';
 
         posts.forEach((post, index) => {
-            // Criar slide
             const slide = document.createElement('div');
             slide.className = `post-slide ${index === 0 ? 'active' : ''}`;
             slide.dataset.index = index;
@@ -197,7 +172,6 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
             `;
             DOM.carouselContainer.appendChild(slide);
 
-            // Criar indicador de navegação
             const dot = document.createElement('button');
             dot.className = `carousel-nav-dot ${index === 0 ? 'active' : ''}`;
             dot.dataset.index = index;
@@ -207,7 +181,6 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
         });
     }
 
-    // Navegação
     function showNextSlide() {
         const slides = document.querySelectorAll('.post-slide');
         currentSlide = (currentSlide + 1) % slides.length;
@@ -232,13 +205,11 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
         document.querySelectorAll('.post-slide').forEach((slide, i) => {
             slide.classList.toggle('active', i === currentSlide);
         });
-        
         document.querySelectorAll('.carousel-nav-dot').forEach((dot, i) => {
             dot.classList.toggle('active', i === currentSlide);
         });
     }
 
-    // Copiar slide atual
     function copyCurrentSlide() {
         if (postsData.length === 0) return;
 
@@ -248,9 +219,7 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
                              `🏷️ Hashtags: ${currentPost.caption.hashtags.replace(/<br>/g, ' ')}`;
 
         navigator.clipboard.writeText(contentToCopy)
-            .then(() => {
-                showCopyFeedback();
-            })
+            .then(showCopyFeedback)
             .catch(err => {
                 console.error('Erro ao copiar:', err);
                 showError('Falha ao copiar. Tente novamente.');
@@ -269,7 +238,6 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
         }, 1000);
     }
 
-    // Controles do carrossel
     function startCarousel() {
         stopCarousel();
         intervalId = setInterval(showNextSlide, 8000);
@@ -294,13 +262,11 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
         DOM.carouselContainer.innerHTML = '<div class="carousel-nav" id="carouselNav"></div>';
         DOM.carouselNav = document.getElementById('carouselNav');
         currentSlide = 0;
-        
         DOM.prevBtn.style.display = 'none';
         DOM.nextBtn.style.display = 'none';
         DOM.copyBtn.style.display = 'none';
     }
 
-    // Fallback
     function renderFallbackContent() {
         DOM.carouselContainer.innerHTML = `
             <div class="post-slide active">
@@ -316,7 +282,6 @@ ${customInstruction ? `Instruções extras: ${customInstruction}` : ''}`;
         DOM.carouselContainer.style.display = 'block';
     }
 
-    // Utilitários
     function sanitizeContent(text) {
         const div = document.createElement('div');
         div.textContent = text;
