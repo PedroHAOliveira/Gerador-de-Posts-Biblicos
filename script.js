@@ -74,19 +74,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 **Post 1:**
 - Imagem: [Descrição detalhada referente ao texto bíblico]
-- Legenda: [Texto bíblico em português com 3-5 hashtags e **referência bíblica no final do texto é imprescindível**]
+- Legenda: [Texto bíblico em português com 3 hashtags e **referência bíblica no final do texto é imprescindível**]
 
 **Post 2:**
 - Imagem: [Descrição detalhada referente ao texto bíblico]
-- Legenda: [Texto bíblico em português com 3-5 hashtags e **referência bíblica no final do texto é imprescindível**]
+- Legenda: [Texto bíblico em português com 3 hashtags e **referência bíblica no final do texto é imprescindível**]
 
 **Post 3:**
 - Imagem: [Descrição detalhada referente ao texto bíblico]
-- Legenda: [Texto bíblico em português com 3-5 hashtags e **referência bíblica no final do texto é imprescindível**]
+- Legenda: [Texto bíblico em português com 3 hashtags e **referência bíblica no final do texto é imprescindível**]
 
 Regras:
-1. Seja criativo
-2. **Referência bíblica no final do texto é imprescindível**
+1. Seja conciso e direto
+2. **Inclua a referência bíblica no final da legenda**
 3. Mantenha este formato exato
 
 ${extra ? `Instruções extras: ${extra}` : ''}`;
