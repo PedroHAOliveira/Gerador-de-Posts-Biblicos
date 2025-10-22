@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let postsData = [];
 
     // Endpoint da API protegida via função serverless
-    const API_ENDPOINT = '/api/gemini.js';
+    const API_ENDPOINT = '/api/gemini';
 
     // Event Listeners
     DOM.generateBtn.addEventListener('click', handleGenerateClick);
