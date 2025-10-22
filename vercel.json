@@ -8,7 +8,7 @@
   },
   "rewrites": [
     {
-      "source": "/api/gemini",
+      "source": "/api/gemini.js",
       "destination": "/api/gemini.js"
     }
   ]
