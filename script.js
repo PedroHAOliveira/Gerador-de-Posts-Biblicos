@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.8, topP: 0.9, topK: 40, maxOutputTokens: 2000 }
+                generationConfig: { temperature: 0.5, topP: 0.9, topK: 40, maxOutputTokens: 2000 }
             })
         });
         if (!res.ok) {
