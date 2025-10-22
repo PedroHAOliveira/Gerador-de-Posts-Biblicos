@@ -5,5 +5,11 @@
     "env": {
       "API_KEY": "__API_KEY__"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/gemini",
+      "destination": "/api/gemini.js"
+    }
+  ]
 }
