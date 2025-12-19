@@ -1,11 +1,14 @@
 {
   "framework": null,
   "outputDirectory": ".",
-  "build": {
-    "env": {
-      "API_KEY": "__API_KEY__"
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
     }
-  },
+  ],
   "rewrites": [
     {
       "source": "/api/gemini.js",
